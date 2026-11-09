@@ -1,0 +1,275 @@
+<!doctype html>
+<!--
+  NEON IDOL : DEBUT.EXE — index.html
+  · 마크업만 둔다. 스타일은 css/, 동작은 js/ (ES Module, 로컬 서버 필요 — README 참고)
+  · 원본의 요소 ID 는 모두 유지했다. onclick="함수()" 대신 data-action="함수" 를 쓴다
+    (js/main.js 의 registerActions 표에서 연결).
+-->
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#b4dcfc">
+<title>NEON IDOL : DEBUT.EXE</title>
+
+<!-- 디자인 시스템 (순서 중요: 변수 → 기본 → 컴포넌트 → 화면 → 반응형) -->
+<link rel="stylesheet" href="css/reset.css">
+<link rel="stylesheet" href="css/variables.css">
+<link rel="stylesheet" href="css/typography.css">
+<link rel="stylesheet" href="css/layout.css">
+<link rel="stylesheet" href="css/components.css">
+<link rel="stylesheet" href="css/animations.css">
+<link rel="stylesheet" href="css/screens/title.css">
+<link rel="stylesheet" href="css/screens/hub.css">
+<link rel="stylesheet" href="css/screens/songselect.css">
+<link rel="stylesheet" href="css/screens/training.css">
+<link rel="stylesheet" href="css/screens/compose.css">
+<link rel="stylesheet" href="css/screens/result.css">
+<link rel="stylesheet" href="css/screens/survival.css">
+<link rel="stylesheet" href="css/screens/modals.css">
+<link rel="stylesheet" href="css/responsive.css">
+
+<!-- Three.js : 로컬 번들 (bare import 'three' → 이 파일) -->
+<script type="importmap">{ "imports": { "three": "./js/vendor/three.module.min.js" } }</script>
+<!-- MediaPipe Hands : 전역 window.Hands 생성 (모델 파일은 libs/mediapipe/hands/) -->
+<script src="libs/mediapipe/hands/hands.js" defer></script>
+<!-- 실행 방식 자동 선택
+     · 더블클릭(file://) : offline/ 의 묶음 스크립트 사용 (브라우저가 ES Module·fetch 를 막기 때문)
+     · 로컬 서버(http://) : js/main.js 소스 모듈을 바로 사용 (코드 수정이 즉시 반영됨) -->
+<script>
+(function () {
+  function add(src, isModule, onerror) {
+    var s = document.createElement('script');
+    s.src = src; s.async = false;
+    if (isModule) s.type = 'module';
+    if (onerror) s.onerror = onerror;
+    document.head.appendChild(s);
+  }
+  if (location.protocol === 'file:') {
+    var fail = function () {
+      document.addEventListener('DOMContentLoaded', function () {
+        var b = document.getElementById('boot');
+        if (b) b.querySelector('small').innerHTML = 'offline 폴더가 없습니다 · README 의 "npm run build" 를 실행하거나 로컬 서버로 열어 주세요';
+      });
+    };
+    add('offline/characters.embed.js', false, fail);
+    add('offline/neonidol.bundle.js', false, fail);
+  } else {
+    add('js/main.js', true);
+  }
+})();
+</script>
+</head>
+<body class="is-booting">
+
+<!-- ===== 배경 레이어 ===== -->
+<canvas id="bg" aria-hidden="true"></canvas>
+<canvas id="scene" aria-hidden="true"></canvas>
+<div class="sky-light" aria-hidden="true"></div>
+<div class="color-layer" aria-hidden="true"></div>
+<div class="vignette" aria-hidden="true"></div>
+
+<!-- 카메라 스트림 (댄스/작곡 공용, 화면에 보이지 않음) -->
+<video id="vid" playsinline muted></video>
+
+<!-- ===== 부트 화면 ===== -->
+<div id="boot" aria-hidden="true"><b>NEON IDOL</b><i></i><small>SYSTEM BOOTING</small></div>
+
+<!-- =========================================================
+     TITLE
+========================================================= -->
+<section class="scr on" id="title" aria-label="타이틀">
+  <div class="title-wrap">
+    <div class="ey">PROJECT : DEBUT∞</div>
+    <h1 class="tl" id="tl">NEON IDOL</h1>
+    <div class="ey sub">DEBUT.EXE</div>
+    <div id="tb">
+      <button class="btn btn--primary btn--lg" data-action="start"><span>게임 시작</span><small>NEW GAME</small></button>
+      <button class="btn btn--glass btn--lg" id="cont" disabled data-action="cont"><span>불러오기</span><small>CONTINUE</small></button>
+    </div>
+  </div>
+  <p class="title-foot">© NEON-NET SURVIVAL PROGRAM · 카메라 · 마이크를 사용하는 게임입니다</p>
+</section>
+
+<!-- =========================================================
+     HUB (메인)
+========================================================= -->
+<section class="scr" id="hub" aria-label="메인">
+  <canvas id="hch" width="720" height="1163" data-action="say" aria-label="캐릭터 (클릭하면 대화)"></canvas>
+  <div id="bub" data-action="say"><span id="bt"></span><i>▶ CLICK</i></div>
+
+  <div id="hlogo"><b class="l1">Saphirs</b><b class="l2">STAGE</b></div>
+  <div id="hw"><div id="hwk"><small>WEEK</small><b id="hwn"></b><span id="hwl"></span></div></div>
+
+  <div id="hside">
+    <button class="no-ripple" data-action="sideBtn" data-arg="메뉴"><svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg><span>메뉴</span></button>
+    <button class="no-ripple" data-action="sideBtn" data-arg="보상"><svg viewBox="0 0 24 24"><rect x="3" y="9" width="18" height="4" rx="1"/><path d="M12 9v12M5 13v8h14v-8M12 9S10 3 7.5 4.5 8 9 12 9zM12 9s2-6 4.5-4.5S16 9 12 9z"/></svg><span>보상</span></button>
+    <button class="no-ripple" data-action="sideBtn" data-arg="알림"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg><span>알림</span></button>
+  </div>
+
+  <div id="hfans"><span class="fi"><svg viewBox="0 0 24 24"><path d="M12 21s-7-4.6-9.3-9A5.3 5.3 0 0112 6.5 5.3 5.3 0 0121.3 12C19 16.4 12 21 12 21z"/></svg></span><div><small>FANS</small><em class="fk">현재 팬 수</em><b id="hfn">0</b></div><i id="hfd"></i></div>
+
+  <button id="hsurv" data-action="surv"><span class="tt"><span class="t">서바이벌 스테이지</span><span class="s" id="hsd">SURVIVAL STAGE</span></span><svg class="chv" viewBox="0 0 40 24"><path d="M4 3l10 9-10 9M20 3l10 9-10 9"/></svg></button>
+
+  <div id="hprof"><div class="lv"><small>LV</small><b id="hpl">1</b></div><div class="pn2"><small>PRODUCER</small><b id="hpn">NOVA</b><i class="xp"><b id="hpx"></b></i></div></div>
+
+  <svg id="hrad" viewBox="-135 -125 270 255" aria-label="능력치"><defs><linearGradient id="rgd" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#45c8ff"/><stop offset="1" stop-color="#ff7ad9"/></linearGradient></defs><g id="rgrid"></g><polygon id="rpoly" fill="url(#rgd)" fill-opacity=".55" stroke="#fff" stroke-width="1.5"/><g id="rlab"></g></svg>
+
+  <div id="toast" role="status" aria-live="polite"></div>
+
+  <nav id="hmenu" aria-label="스케줄">
+    <button data-action="act" data-arg="vocal"><span class="ic"><svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0014 0M12 18v3"/></svg></span><span class="tx"><b>보컬 트레이닝</b><small>VOCAL TRAINING</small></span><em class="tag">VOCAL ↑</em></button>
+    <button data-action="act" data-arg="dance"><span class="ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="2"/><path d="M12 8v6M12 10l-5-3M12 10l5 3M12 14l-4 6M12 14l4 6"/></svg></span><span class="tx"><b>댄스 트레이닝</b><small>DANCE TRAINING</small></span><em class="tag">DANCE ↑</em></button>
+    <button data-action="act" data-arg="compose"><span class="ic"><svg viewBox="0 0 24 24"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg></span><span class="tx"><b>작곡 트레이닝</b><small>COMPOSE TRAINING</small></span><em class="tag">CHARM ↑</em></button>
+    <button data-action="openParts"><span class="ic"><svg viewBox="0 0 24 24"><path d="M8 4L3 7l2.5 4L8 9.5V20h8V9.5l2.5 1.5L21 7l-5-3a4 4 0 01-8 0z"/></svg></span><span class="tx"><b>파츠 변경</b><small>PARTS CHANGE</small></span></button>
+    <button data-action="openStory"><span class="ic"><svg viewBox="0 0 24 24"><path d="M4 5a2 2 0 012-2h13v16H6a2 2 0 00-2 2V5zM4 19a2 2 0 012-2h13"/></svg></span><span class="tx"><b>스토리</b><small>STORY</small></span></button>
+  </nav>
+</section>
+
+<!-- =========================================================
+     SONG SELECT
+========================================================= -->
+<section class="scr" id="songsel" aria-label="곡 선택">
+  <button class="btn btn--secondary btn--sm" id="sgBack" data-action="hub">◀ BACK</button>
+  <div id="sgL">
+    <div id="disc"><i id="dGroove"></i><i id="dSheen"></i><i id="dTicks"></i><i id="dNotch"></i></div>
+    <div id="sgCards"></div><div id="sgSel"></div>
+    <div id="sgHint"><span>▲▼</span> SCROLL · DRAG · ARROW KEYS</div>
+  </div>
+  <div id="sgR">
+    <div id="sgT"><small id="sgM"></small><b id="sgN"></b><span id="sgA"></span></div>
+    <div id="sgCov"><div id="sgRec"></div><canvas id="cover" width="480" height="480"></canvas></div>
+    <div id="sgPv"><i></i><i></i><i></i><i></i><i></i><em id="sgPvT">PREVIEW</em></div>
+    <div id="difs" role="radiogroup" aria-label="난이도"><button data-d="easy">EASY</button><button data-d="normal">NORMAL</button><button data-d="hard">HARD</button><button data-d="expert">EXPERT</button></div>
+    <button class="btn btn--primary btn--xl" id="sgGo" data-action="startSong">GAME START</button>
+  </div>
+</section>
+
+<!-- =========================================================
+     DANCE / VOCAL TRAINING
+========================================================= -->
+<section class="scr train" id="dance" aria-label="댄스 트레이닝">
+  <div class="hud-chip" id="dh"></div>
+  <button class="btn btn--secondary btn--sm" id="dcam" style="display:none">카메라 켜기</button>
+  <div class="stage-frame"><canvas id="dc" width="1280" height="960"></canvas></div>
+</section>
+<section class="scr train" id="vocal" aria-label="보컬 트레이닝">
+  <div class="hud-chip" id="vh"></div>
+  <div class="stage-frame"><canvas id="vc" width="1280" height="600"></canvas></div>
+</section>
+
+<!-- =========================================================
+     RESULT
+========================================================= -->
+<section class="scr" id="res" aria-label="결과">
+  <div class="res-card"><h2 id="rt"></h2><div id="rb"></div><div class="res-actions" id="rbt"></div></div>
+</section>
+
+<!-- =========================================================
+     SURVIVAL STAGE (5단계 스탯 대결 — js/gameplay/survivalStage.js 가 채운다)
+========================================================= -->
+<section class="scr" id="survival" aria-label="서바이벌 스테이지">
+  <button class="btn btn--secondary btn--sm" id="svBack" data-action="svHub">◀ BACK</button>
+  <header class="sv-head">
+    <small class="ey">SURVIVAL STAGE</small>
+    <h2 id="svTitle"></h2>
+    <span id="svSub"></span>
+    <ol class="sv-pips" id="svPips"></ol>
+  </header>
+  <div class="sv-arena">
+    <div class="sv-side sv-me"><div class="sv-portrait"><canvas id="svMeCv" width="420" height="560"></canvas></div><small>PRODUCE IDOL</small><b id="svName"></b></div>
+    <div class="sv-board"><div class="sv-cols"><span>YOU</span><span></span><span>RIVAL</span></div><div id="svRounds"></div><div class="sv-verdict" id="svVerdict"></div></div>
+    <div class="sv-side sv-rival"><div class="sv-portrait sv-silhouette"><i></i></div><small id="svRivalEn"></small><b id="svRival"></b></div>
+  </div>
+  <p class="sv-rule" id="svRule"></p>
+  <div class="sv-actions" id="svActions"></div>
+</section>
+
+<!-- =========================================================
+     COMPOSE TRAINING
+========================================================= -->
+<section class="scr" id="compose" aria-label="작곡 트레이닝">
+  <div id="cTop">
+    <button class="btn btn--secondary btn--sm" data-action="composeExit">◀ BACK</button>
+    <div id="cTitle"><small>COMPOSE TRAINING</small><b>작곡 트레이닝</b></div>
+    <div id="cCtl">
+      <span>OCTAVE</span><div id="cOct" class="seg"><button data-o="4" class="on">4</button><button data-o="5">5</button></div>
+      <span>VOWEL</span><div id="cVow" class="seg"><button data-v="a" class="on">아</button><button data-v="i">이</button><button data-v="u">우</button><button data-v="e">에</button><button data-v="o">오</button></div>
+      <button class="btn btn--glass btn--sm" id="cReset">RESET</button>
+    </div>
+  </div>
+  <div id="cGuide"></div>
+  <div id="cCam" class="stage-frame"><canvas id="cc" width="960" height="720"></canvas><div id="cSt"><span id="cStT">준비 중…</span><button class="btn btn--secondary btn--sm" id="cRetry" style="display:none">카메라 켜기</button></div></div>
+  <div id="cBot">
+    <div id="cSlots"><div class="cs" id="cs0"><div><small>HAND 1</small><em>—</em></div><b>—</b></div><div class="cs" id="cs1"><div><small>HAND 2</small><em>—</em></div><b>—</b></div></div>
+    <div id="cHist"></div>
+    <button id="cRec" title="40초 동안 연주를 녹음해요"><span class="dot"></span><span id="cRecT">REC · 40초 녹음</span><i id="cRecBar"></i></button>
+  </div>
+</section>
+
+<!-- =========================================================
+     WINDOWS / MODALS
+========================================================= -->
+<!-- 파츠 변경 : 탭/파츠 목록/색상은 characterCustomization.js 가 채운다 -->
+<div class="win" id="wChar" role="dialog" aria-modal="true" aria-labelledby="czTitle">
+  <div class="wp wp--char">
+    <header class="wp-head">
+      <div><small class="ey">CHARACTER CUSTOMIZE</small><h2 id="czTitle">파츠 변경</h2></div>
+      <button class="wx" data-action="askParts" aria-label="닫기" title="닫기 (Esc)">✕</button>
+    </header>
+    <div class="cz">
+      <div class="cz-stage">
+        <canvas id="pv" width="560" height="760"></canvas>
+        <div class="cz-stage-ui"><span id="czName"></span><button class="btn btn--glass btn--sm" id="czFull" data-action="czFull">전신 보기</button></div>
+      </div>
+      <div class="cz-panel">
+        <div class="cz-tabs" id="czTabs" role="tablist"></div>
+        <div class="cz-body">
+          <h4 class="cz-h">PARTS</h4>
+          <div class="cz-parts" id="czParts"></div>
+          <h4 class="cz-h">COLOR</h4>
+          <div id="pl"></div>
+        </div>
+      </div>
+    </div>
+    <footer class="wp-foot">
+      <button class="btn btn--glass" data-action="resetLook">기본값</button>
+      <button class="btn btn--glass" data-action="revertLook">되돌리기</button>
+      <span class="sp"></span>
+      <button class="btn btn--primary" data-action="saveParts">저장</button>
+    </footer>
+  </div>
+</div>
+
+<!-- 스토리 -->
+<div class="win" id="wStory" role="dialog" aria-modal="true" aria-labelledby="stTitle">
+  <div class="wp wp--story">
+    <header class="wp-head">
+      <div><small class="ey">ARCHIVE</small><h2 id="stTitle">스토리</h2></div>
+      <button class="wx" data-action="closeW" aria-label="닫기" title="닫기 (Esc)">✕</button>
+    </header>
+    <div class="wb"><div id="sl"></div><div id="st" class="story-text"></div></div>
+  </div>
+</div>
+
+<div id="cPop" class="modal"><div class="cmP"><h3>곡 추가 완료</h3><p id="cPopT" style="white-space:pre-line"></p><div class="row"><button class="btn btn--primary" id="cPopOk">확인</button></div></div></div>
+<div id="pAsk" class="modal"><div class="cmP"><h3>파츠 변경</h3><p id="pAskT"></p><div class="row"><button class="btn btn--primary" data-action="saveParts">예</button><button class="btn btn--glass" data-action="cancelParts">아니요</button></div></div></div>
+<div id="cModal" class="modal"><div class="cmP">
+  <div id="cmAsk"><h3>녹음 완료!</h3><p>이 곡을 투고하시겠습니까?</p><div class="row"><button class="btn btn--primary" id="cmYes">예</button><button class="btn btn--glass" id="cmNo">아니오</button></div></div>
+  <div id="cmName" style="display:none"><h3>곡 제목</h3><input id="cmIn" type="text" maxlength="24" placeholder="곡 제목을 입력하세요" autocomplete="off"><small id="cmErr"></small><div class="row"><button class="btn btn--primary" id="cmOk">확인</button><button class="btn btn--glass" id="cmBack">취소</button></div></div>
+</div></div>
+
+<!-- 일시정지 -->
+<button id="gpBtn" class="no-ripple" aria-label="일시정지" title="일시정지 (Esc)"><i></i><i></i></button>
+<div id="gpOv"><div class="gpP"><small>PAUSE</small><b id="gpT"></b><span id="gpS"></span><div class="gpR"><button class="btn btn--secondary" id="gpExit">나가기</button><button class="btn btn--primary" id="gpRetry">이어하기<em>멈춘 곳에서 다시 시작</em></button></div></div></div>
+<div id="gpCd"><b>3</b><small>멈춘 곳에서 다시 시작합니다</small></div>
+
+<!-- 연출 레이어 -->
+<div id="judgeFx" aria-hidden="true"></div>
+<div id="fxLayer" aria-hidden="true"></div>
+<div id="wipe" aria-hidden="true"><i></i><i></i><b></b></div>
+
+<!-- BGM -->
+<audio id="bgm" loop preload="auto" src="assets/audio/bgm/hub-theme.mp3"></audio>
+</body>
+</html>
